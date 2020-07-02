@@ -1,0 +1,213 @@
+#COMMON
+$id [a-zA-Z_][a-zA-Z0-9_]*
+$whitespace [\0x00-\0x09\0x0B-\0x20\0x7F]
+$user_comment \#\#[^\0x0A]*
+$newline \0x0A
+$lexer_token $[a-zA-Z_][a-zA-Z0-9_]*
+$open_bracket \[
+$close_bracket \]
+$open_param \(
+$close_param \)
+$open_curl \{
+$close_curl \}
+$star \*
+$plus \+
+$question \?
+$bar \|
+$basic_escape_sequence \\([^0]|(0x[0-9a-fA-F]{2})
+$dash -
+$lit_uint [0-9]+
+$comma ,
+$equals =
+
+#LEXER main
+$lexer_header \#LEXER
+$parser_header \#PARSER
+$postprocess_header \#POSTPROCESS
+$transforms_header \#TRANSFORMS
+$common_header \#COMMON
+$id
+$whitespace
+$user_comment
+$newline
+
+#LEXER lexer_l
+$lexer_token
+$whitespace
+$newline
+
+#LEXER regex_l
+$regex_symbol [^*\[\]+?\\()|{}#\0x00-\0x1F]
+$open_bracket
+$inverted_open_bracket \[^
+$open_curl
+$close_curl
+$open_brace
+$close_brace
+$star
+$plus
+$question
+$bar
+$basic_escape_sequence \\([^0E]|(0x[0-9a-fA-F]{2})
+$empty_string \\E
+
+#POSTPROCESS
+$basic_escape_sequence -> $regex_symbol  basic_escape_handler(#MATCHTEXT)
+
+#LEXER regex_bracket_l
+$close_bracket
+$regex_symbol [^\[\]\-]
+$dash
+$basic_escape_sequence
+
+#POSTPROCESS
+$basic_escape_sequence -> $regex_symbol basic_escape_handler(#MATCHTEXT)
+
+#LEXER regex_repeat_l
+$lit_uint
+$comma
+
+#LEXER postprocess_l
+$lexer_token
+$map_symbol ->
+$id
+$open_brace
+$close_brace
+$comma
+$builtin_parameter \#[a-zA-Z_][a-zA-Z0-9_]*
+
+#LEXER parser_l
+$id
+$equals
+$open_brace
+$close_brace
+$star
+$plus
+$enum_tag [0-9]+:
+$lexer_token
+$empty_sym @
+$whitespace
+$builtin_macro \#[a-zA-Z_][a-zA-Z0-9_]*
+$using_header \#USING
+$default_builtin \#DEFAULT
+
+#LEXER transforms_l
+$newline
+$not_newline [^\0x0A]
+$not_hash [^#]
+
+#PARSER
+grammar = (lexer_segment | parser_segment)*
+lexer_segment = $newline* $lexer_header $id token* postprocess_segment?
+
+#USING(lexer_l)
+token =	1: $newline+ $lexer_token regex
+		2: token_ref
+token_ref = $newline+ $lexer_token
+
+#USING(regex_l)
+regex =	1: regex $star
+	2: regex $plus
+	3: regex $question
+	4: regex $bar regex #LEFT
+	5: $open_brace regex $close_brace
+	6: $open_bracket bracket_list
+	7: $inverted_open_bracket bracket_list
+	8: regex $open_curl regex_repeat $close_curl
+	9: $regex_symbol
+	10:$empty_string
+	11:regex+
+
+#USING(regex_bracket_l)
+bracket_list = ($regex_symbol | regex_range)+ $bracket_close
+regex_range = $regex_symbol $dash $regex_symbol
+
+#USING(regex_repeat_l)
+regex_repeat =	1: $literal_int $comma $literal_int
+		2: $literal_int
+		3: $literal_int $comma
+postprocess_segment = $postprocess_header process_rule*
+
+#USING(postprocess_l)
+process_rule =	1: $lexer_token $map_symbol $lexer_token $id $open_brace process_param_list $close_brace
+		2: $lexer_token $id $open_brace process_param_list $close_brace
+process_param_list = #LIST($bultin_parameter, $comma)
+
+parser_segment = $newline* $parser_header parse_rule* transforms_segment?
+
+#USING(parser_l)
+parse_rule = using_clause? $newline+ $id $equals (enum_union | rule)
+using_clause = $using_header $open_brace $id $close_brace
+enum_union = ($newline* $enum_tag rule $bar?)+
+rule = sub_expr+
+sub_expr =	1: $id
+		2: $lexer_token
+		3: $empty_sym
+		4: sub_expr $bar sub_expr
+		5: sub_expr $star
+		6: sub_expr $plus
+		7: $builtin_macro
+		8: $open_brace sub_expr $close_brace
+transforms_segment = $transforms_header lines_to_eat*
+#USING(transforms_l)
+lines_to_eat = $newline* $not_hash $not_newline* $newline
+
+#TRANSFORMS
+lexer_segment -> $id token* postprocess_segment(#EMPTY)
+token[1] -> $lexer_token regex type_decl($type_string)
+token_ref -> $lexer_token
+regex[1] -> regex
+regex[2]: %root { %root = regex*(regex(%root.regex), regex[1](%root.regex)) }
+regex[3]: %root { %root = regex[4](regex(%root.regex), regex($empty_string))
+regex[4] -> regex regex
+regex[5] -> regex
+regex[6] -> bracket_list
+regex[7] -> bracket_list
+regex[8]: %root {
+	regex* %newRoot = regex*($empty_string)
+	regex %toRepeat = %root.regex
+
+	#SWITCH(%root.regex_repeat) {
+	#CASE ($literal_int $literal_int)
+
+		#INT %min = %root.regex_repeat.$literal_int[0]
+		#INT %max = %root.regex_repeat.$literal_int[1]
+		#ASSERT(%min > 0 && %max > 0, "Error: 'min' and 'max' must both be greater than 0)
+		#ASSERT(%min <= %max, "Error: 'min' argument in repeat clause is bigger than 'max'")
+		#ASSERT(%max > 0, "Error: cannot repeat something '0' times.")
+		#FOR (#INT %i = 0; i < %min; %i++) {
+			%newRoot.PUSH(regex(%toRepeat))
+		}
+		#FOR (#INT %i = %min; %i < %max; %i++) {
+			%newRoot.PUSH(regex[4](regex($empty_string), regex(%toRepeat))
+		}
+	#CASE ($literal_int)
+		#INT %min = %root.regex_repeat.$literal_int
+		#FOR (#UINT %i = 0; i < %min; %i++) {
+			%newRoot.PUSH(regex(%toRepeat))
+		}
+		%newRoot.PUSH(regex[5](%toRepeat))
+	}
+	%root = %newRoot	
+}
+regex_repeat: %root {
+	#SWITCH(%root) {
+	#CASE 1
+		%root = ($literal_int(%root.$literal_int[0]), $literal_int(%root.$literal_int[1]))
+	#CASE 2
+		%root = ($literal_int(%root.$literal_int), $literal_int(%root.$literal_int))
+	#CASE 3
+		%root = ($literal_int(%root.$literal_int))
+	}
+}
+
+postprocess_segment -> process_rule*
+process_rule[1] -> $lexer_token $lexer_token $id process_param_list
+process_rule[2] -> $lexer_token $id process_param_list
+parser_segment -> parse_rule* transforms_segment(#EMPTY)
+parse_rule -> using_header($default_builtin) $id (enum_union | rule)
+enum_union -> ($enum_tag rule)+
+sub_expr[4] -> sub_expr sub_expr
+sub_expr[5] -> sub_expr
+sub_expr[6] -> sub_expr
+sub_expr[8] -> sub_expr

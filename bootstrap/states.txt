@@ -1,0 +1,243 @@
+S =	R 'EOF'    	| 0
+
+R =	R R		| 1
+	'(' R ')'	|  
+	R '|' R		|
+	R '*'		|
+	'sym'		|
+	'[' B ']'	|
+	'[' '^' B ']'
+
+B =	B B		| 2
+	'sym'		|
+	L
+
+L =	'sym' '-' 'sym'   3
+
+#STATE 0
+S =	.R 'EOF'
+R =	.R R
+	.'(' R ')'
+	.R '|' R
+	.R '*'
+	.'sym'
+	.'[' B ']'
+	.'[' '^' B ']'
+#MATCH
+	'('	1
+	'sym'	2
+	'['	3
+#GOTO
+	R	4
+
+#STATE 1
+R =	'(' .R ')
+	.R R
+	.'(' R ')'
+	.R '|' R
+	.R '*'
+	.'sym'
+	.'[' B ']'
+	.'[' '^' B ']'
+#MATCH
+	'('	1
+	'sym'	2
+	'['	3
+#GOTO
+	R	5
+
+#STATE 2
+R =	'sym'.
+#REDUCE 1
+
+#STATE 3
+R =	'[' .B ']'
+	'[' .'^' B ']'
+B =	.B B
+	.'sym'
+	.L
+L =	.'sym' '-' .'sym'
+#MATCH
+	'sym'	6
+	'^'	7
+#GOTO
+	B	8
+	L	12
+	
+#STATE 4
+S =	R .'EOF'
+R =	R .R
+	R .'|' R
+	R .'*'
+	.R R
+	.'(' R ')'
+	.R '|' R
+	.R '*'
+	.'sym'
+	.'[' B ']'
+	.'[' '^' B ']'
+#MATCH
+	'('	1
+	'sym'	2
+	'['	3
+	'*'	11
+#GOTO
+	R	9
+
+#STATE 5
+R =	'(' R .')'
+	R .R
+	R .'|' R
+	R .'*'
+	.R R
+	.'(' R ')'
+	.R '|' R
+	.R '*'
+	.'sym'
+	.'[' B ']'
+	.'[' '^' B ']'
+#MATCH
+	'('	1
+	'sym'	2
+	'['	3
+	'|'	10
+	'*'	11
+	')'	16
+#GOTO
+	R	9
+
+#STATE 6
+B =	'sym'.
+L =	'sym' .'-' 'sym'
+#MATCH
+	'-'	13
+#REDUCE 2
+
+#STATE 7
+R =	'[' '^' .B ']'
+B =	.B B
+	.'sym'
+	.L
+L =	.'sym' '-' .'sym'
+#MATCH
+	'sym'	6
+#GOTO
+The 	B	19
+	L	12
+
+#STATE 8
+R =	'[' B .']'
+B =	B .B
+	.B B
+	.'sym'
+	.L
+L =	.'sym' '-' .'sym'
+#MATCH
+	']'	14
+	'sym'	6
+#GOTO
+	L	12
+	B	15
+
+#STATE 9
+R =	R R.
+	R .R
+	R .'|' R
+	R .'*'
+	.R R
+	.'(' R ')'
+	.R '|' R
+	.R '*'
+	.'sym'
+	.'[' B ']'
+	.'[' '^' B ']'
+#MATCH
+	'*'	11
+#GOTO
+	R	9
+#REDUCE 1
+
+#STATE 10
+R =	R '|' .R
+	.R R
+	.'(' R ')'
+	.R '|' R
+	.R '*'
+	.'sym'
+	.'[' B ']'
+	.'[' '^' B ']'
+#MATCH
+	'('	1
+	'sym'	2
+	'['	3
+#GOTO
+	R	17
+
+#STATE 11
+R =	R '*'.
+#REDUCE 1
+
+#STATE 12
+B =	L.
+#REDUCE 2
+
+#STATE 13
+L =	'sym' '-' .'sym'
+#MATCH
+	'sym'	18
+
+#STATE 14
+R =	'[' B ']'.
+#REUDCE 1
+
+#STATE 15
+B =	B B.
+	B .B
+	.B B
+	.'sym'
+	.L
+L =	.'sym' '-' .'sym'
+#REDUCE 2
+	
+#STATE 16
+R =	'(' R ')'.
+#REDUCE 1
+
+#STATE 17
+R =	R '|' R.
+	R .R
+	R .'|' R
+	R .'*'
+	.R R
+	.'(' R ')'
+	.R '|' R
+	.R '*'
+	.'sym'
+	.'[' B ']'
+	.'[' '^' B ']'
+#MATCH
+	'*'	11
+#REDUCE 1
+
+#STATE 18
+L =	'sym' '-' 'sym'.
+#REDUCE 3
+
+#STATE 19
+R =	'[' '^' B .']'
+B =	B .B
+	.B B
+	.'sym'
+	.L
+L =	.'sym' '-' .'sym'
+#MATCH
+	']'	20
+	'sym'	6
+#GOTO
+	B	15
+	L	12
+
+#STATE 20
+R =	'[' '^' B ']'.
+#REDUCE 1
+

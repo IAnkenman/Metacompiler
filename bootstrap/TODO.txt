@@ -1,0 +1,12 @@
+Finish and test insertion logic for the BTree implementation. "BTree.c"
+
+Buid a simple parser for generating the lexers required to bootstrap the metacompiler. The regexes defining the rules for the lexers are in "regex.h" Parser states have already been made in the file states.txt. "lexer.c" "lexer.h"
+
+Write a parser to parse and generate parse logic from a given grammar.
+
+#OPTIMIZATIONS
+//This are not nesseccary for the compiler to function but can be added later.
+
+Canonicalize lexer rules and compare to already defined lexer rules to prevent duplicates.
+
+Analyze parser output to determine which tokens never have their matched text used in order to reduce memory usage and compile time by not storing it.
