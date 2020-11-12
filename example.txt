@@ -1,4 +1,4 @@
-#COMMON
+tokens {
 $id [a-zA-Z_][a-zA-Z0-9_]*
 $whitespace [\0x00-\0x09\0x0B-\0x20\0x7F]
 $user_comment \#\#[^\0x0A]*
@@ -19,8 +19,9 @@ $dash -
 $lit_uint [0-9]+
 $comma ,
 $equals =
+}
 
-#LEXER main
+lexer main {
 $lexer_header \#LEXER
 $parser_header \#PARSER
 $postprocess_header \#POSTPROCESS
@@ -30,13 +31,15 @@ $id
 $whitespace
 $user_comment
 $newline
+}
 
-#LEXER lexer_l
+lexer lexer_l {
 $lexer_token
 $whitespace
 $newline
+}
 
-#LEXER regex_l
+lexer regex_l {
 $regex_symbol [^*\[\]+?\\()|{}#\0x00-\0x1F]
 $open_bracket
 $inverted_open_bracket \[^
@@ -50,24 +53,29 @@ $question
 $bar
 $basic_escape_sequence \\([^0E]|(0x[0-9a-fA-F]{2})
 $empty_string \\E
+}
 
-#POSTPROCESS
+postprocess {
 $basic_escape_sequence -> $regex_symbol  basic_escape_handler(#MATCHTEXT)
+}
 
-#LEXER regex_bracket_l
+lexer regex_bracket_l {
 $close_bracket
 $regex_symbol [^\[\]\-]
 $dash
 $basic_escape_sequence
+}
 
-#POSTPROCESS
+postprocess {
 $basic_escape_sequence -> $regex_symbol basic_escape_handler(#MATCHTEXT)
+}
 
-#LEXER regex_repeat_l
+lexer regex_repeat_l {
 $lit_uint
 $comma
+}
 
-#LEXER postprocess_l
+lexer postprocess_l {
 $lexer_token
 $map_symbol ->
 $id
@@ -75,8 +83,9 @@ $open_brace
 $close_brace
 $comma
 $builtin_parameter \#[a-zA-Z_][a-zA-Z0-9_]*
+}
 
-#LEXER parser_l
+lexer parser_l {
 $id
 $equals
 $open_brace
@@ -90,13 +99,15 @@ $whitespace
 $builtin_macro \#[a-zA-Z_][a-zA-Z0-9_]*
 $using_header \#USING
 $default_builtin \#DEFAULT
+}
 
-#LEXER transforms_l
+lexer transforms_l {
 $newline
 $not_newline [^\0x0A]
 $not_hash [^#]
+}
 
-#PARSER
+parser main {
 grammar = (lexer_segment | parser_segment)*
 lexer_segment = $newline* $lexer_header $id token* postprocess_segment?
 
@@ -151,8 +162,9 @@ sub_expr =	1: $id
 transforms_segment = $transforms_header lines_to_eat*
 #USING(transforms_l)
 lines_to_eat = $newline* $not_hash $not_newline* $newline
+}
 
-#TRANSFORMS
+transforms {
 lexer_segment -> $id token* postprocess_segment(#EMPTY)
 token[1] -> $lexer_token regex type_decl($type_string)
 token_ref -> $lexer_token
@@ -211,3 +223,4 @@ sub_expr[4] -> sub_expr sub_expr
 sub_expr[5] -> sub_expr
 sub_expr[6] -> sub_expr
 sub_expr[8] -> sub_expr
+}

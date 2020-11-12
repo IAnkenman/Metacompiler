@@ -1,61 +1,48 @@
+/*
+ * This is the handwritten lexer being used to bootsrap the metacompiler.
+ * It can parse simple regexs in order to generate the DFAs requied for more
+ * complex lexical analysis without the need to handcode them.
+ */
+
 #pragma once
+#include <stddef.h>
 #include <stdio.h>
-#include <stdlib.h>
-#include "memory.h"
 
 struct token {
 	size_t id;
 	size_t meta;
 };
 
-typedef size_t DFA;
+typedef size_t RULE;
+typedef size_t LEXER;
 
-//The regular expressions that define these tokens are in regex.h
-enum token_t : unsigned long long {
-	lexer_header = 0,
-	parser_header,
-	postprocess_header,
-	transforms_heaer,
-	common_header,
-	id,
-	whitespace,
-	user_comment,
-	newline,
-	lexer_token,
-	regex_symbol,
-	open_bracket,
-	close_bracket,
-	inverted_open_bracket,
-	open_curl,
-	close_curl,
-	open_brace,
-	close_brace,
-	star,
-	plus,
-	question,
-	bar,
-	empty_string,
-	dash,
-	lit_uint,
-	comma,
-	map_symbol,
-	builtin_parameter,
-	equals,
-	enum_tag,
-	empty_sym,
-	builtin_macro,
-	using_header,
-	default_builtin,
-	__eof = 0x8000000000000000,
-	__symbol_error, //Given when a token is not recognised.
-};
+/*
+ * Initializes the lexer
+ */
+void lexer_init();
 
-struct lexer_context {
-	FILE * input;
-};
+/*
+ * Frees all memory held by the lexer.
+ */
+void lexer_free();
 
-struct lexer_context lexer_new();
-void lexer_destroy(struct lexer_context *);
+/*
+ * Makes a rule from a regex.
+ */
+RULE lexer_makeRule(char * rule, int* err);
 
-//TODO Remember to discard all tokens labled 'discard' when switching lexers
-//Parser driven lexical analysis
+/*
+ * Binds a set of rules to define a lexer.
+ */
+LEXER lexer_bindRuleset(RULE* rules, size_t arrSize);
+
+/*
+ * Binds a FILE object to the context that will be used as an input stream.
+ * The lexer does not handle opening or closing the file object, this must be handled by the calling code
+ */
+void lexer_bindStream(FILE* file);
+
+/*
+ * Returns the next token in the input stream, or EOF if no more exist.
+ */
+struct token lexer_next(LEXER lex);

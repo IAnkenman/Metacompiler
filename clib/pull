@@ -1,0 +1,4 @@
+
+cp ../../Memory/*.h ../../Memory/*.c ./src/
+cp ../../Memory/custom_memory.a ./bin/
+

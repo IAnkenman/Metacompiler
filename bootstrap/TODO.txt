@@ -1,12 +1,18 @@
-Finish and test insertion logic for the BTree implementation. "BTree.c"
+Rewrite hashmap.c to use linear probing
 
-Buid a simple parser for generating the lexers required to bootstrap the metacompiler. The regexes defining the rules for the lexers are in "regex.h" Parser states have already been made in the file states.txt. "lexer.c" "lexer.h"
+Test hashmap.c
 
-Write a parser to parse and generate parse logic from a given grammar.
+Debug regex.c
 
-#OPTIMIZATIONS
-//This are not nesseccary for the compiler to function but can be added later.
+Create NFA interpreter in lexer.c to analyse tokens based on a set of DFA's generated from lexer rules and allow swapping NFAs mid analysis
 
-Canonicalize lexer rules and compare to already defined lexer rules to prevent duplicates.
+Redesign meta language to remove user defined ids from top level scope and use freeform syntax
 
-Analyze parser output to determine which tokens never have their matched text used in order to reduce memory usage and compile time by not storing it.
+Get rid of the concept of #USING lexers in the original language. Have the parser generate lexical analysers from tokens sets derived from the grammar automatically.
+
+Implement set.c as a balanced binary tree
+
+
+//OPTIMIZATION
+
+More efficently compute the character sets used in DFA traversal from a set of NFA edges in regex.c
