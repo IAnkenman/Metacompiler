@@ -1,0 +1,116 @@
+#	This is the current draft of the metalanguage, laying out the basic structure and syntax for the bootstap process to target
+#	Comments in the language are prefaced with '#' and end at the next newline
+
+#No user provided id/variable can be defined plainly in the global scope in order to reduce ambiguity in the language's syntax.
+#All items defined in the global scope in the file must begin with a predefined token, i.e.:
+
+data {
+	uint currentLineNumber;
+	String[] tokenList;
+}
+
+#Tokens for the parser are defined in a token block. Token ID's begin with '$' and will be exported to all parsers defined in the file.
+#Regular expressions follow the token ID, seperated by a single <Space>, any additional <Space> characters will be included in the RegEx.
+
+tokens {
+	$id [a-zA-Z_][a-zA-Z0-9_]*
+	$whitespace [\0x00-\0x09\0x0B-\0x20\0x7F]
+	$user_comment \#\#[^\0x0A]*
+	$newline \0x0A
+	$lexer_token $[a-zA-Z_][a-zA-Z0-9_]*
+	$open_bracket \[
+	$close_bracket \]
+	$open_param \(
+	$close_param \)
+	$open_curl \{
+	$close_curl \}
+	$star \*
+	$plus \+
+	$question \?
+	$bar \|
+	$basic_escape_sequence \\([^0]|(0x[0-9a-fA-F]{2})
+	$dash -
+	$lit_uint [0-9]+
+	$comma ,
+	$equals =
+	$regex_symbol [^*\[\]+?\\()|{}#\0x00-\0x1F]
+	$inverted_open_bracket \[^
+	$empty_string \\E
+	$regex_list_symbol [^\[\]\-]
+	$enum_tag [0-9]+:
+	$not_newline [^\0x0A]
+}
+
+#The parser section contains the grammar rules for the metacompiler to generate
+#It uses an alteration of EBNF that uses RegEx style operaters to indicate repetition
+# and optional arguments instead of the bracket style syntax in the original for brevity.
+#Unqalified arguments are considered to be non-termianls, and all teminals should be defined
+# in the token block
+parser main_parser {
+	grammar = (lexer_segment | parser_segment)*
+	lexer_segment = $newline* $lexer_header $id token* postprocess_segment?
+
+	token =
+		1: $newline+ $lexer_token regex
+		2: token_ref
+	token_ref = $newline+ $lexer_token
+	regex =
+		1: regex $star
+		2: regex $plus
+		3: regex $question
+		4: regex $bar regex #LEFT
+		5: $open_brace regex $close_brace
+		6: $open_bracket bracket_list
+		7: $inverted_open_bracket bracket_list
+		8: regex $open_curl regex_repeat $close_curl
+		9: $regex_symbol
+		10:$empty_string
+		11:regex+
+
+	bracket_list = ($regex_symbol | regex_range)+ $bracket_close
+	regex_range = $regex_symbol $dash $regex_symbol
+
+	regex_repeat =
+		1: $literal_int $comma $literal_int
+		2: $literal_int
+		3: $literal_int $comma
+	postprocess_segment = $postprocess_header process_rule*
+
+	process_rule =
+		1: $lexer_token $map_symbol $lexer_token $id $open_brace process_param_list $close_brace
+		2: $lexer_token $id $open_brace process_param_list $close_brace
+	process_param_list = #LIST($bultin_parameter, $comma)
+
+	parser_segment = $newline* $parser_header parse_rule* transforms_segment?
+
+	parse_rule = using_clause? $newline+ $id $equals (enum_union | rule)
+	using_clause = $using_header $open_brace $id $close_brace
+	enum_union = ($newline* $enum_tag rule $bar?)+
+	rule = sub_expr+
+	sub_expr =
+		1: $id
+		2: $lexer_token
+		3: $empty_sym
+		4: sub_expr $bar sub_expr
+		5: sub_expr $star
+		6: sub_expr $plus
+		7: $builtin_macro
+		8: $open_brace sub_expr $close_brace
+}
+
+#The language will include a very basic C-style language, to assist in adding functions into generated parser code
+func escape_handler(String s) Token {
+	switch (s) {
+	case "//n"
+		return $newline;
+	case "//r"
+		return $carrigeReturn;
+	case "//0x":rest
+		return {$symbol, getHexValue(rest);
+	}
+}
+
+#The order of function definitions will not matter. For example, the call to this function from the above one will succeed.
+func getHexValue(String s) {
+	#Interpret the list of chars in String s and return it as a hex value here
+}
